@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Курс испанского языка</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="bg-white border-b border-gray-200">
+  <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+    <a href="index.html" class="text-xl font-bold" style="font-family: Lora, serif;">
+      <span style="color: var(--color-accent);">¡Español!</span>
+      <span class="text-gray-500 text-base font-normal ml-2 hidden sm:inline">курс испанского</span>
+    </a>
+    <nav class="flex gap-4 text-sm">
+      <a href="index.html" class="text-gray-700 hover:text-orange-700">Курс</a>
+      <a href="about.html" class="text-gray-700 hover:text-orange-700">О курсе</a>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-8">
+
+  <section class="mb-8" id="course-header">
+    <p class="text-gray-500 text-sm">Загрузка курса...</p>
+  </section>
+
+  <section id="levels-container">
+    <!-- Уровни и модули рендерятся через JS -->
+  </section>
+
+  <section class="mt-12 pt-6 border-t border-gray-200">
+    <button onclick="resetAllProgress()" class="text-sm text-gray-400 hover:text-red-600">
+      Сбросить весь прогресс
+    </button>
+  </section>
+
+</main>
+
+<footer class="border-t border-gray-200 mt-12 py-6 text-center text-sm text-gray-400">
+  <p>Сайт собран как учебный проект курса испанского языка.</p>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+async function init() {
+  const headerEl = document.getElementById('course-header');
+  const levelsEl = document.getElementById('levels-container');
+
+  let course;
+  try {
+    course = await loadCourse();
+  } catch (e) {
+    showError(headerEl, e.message);
+    return;
+  }
+
+  // Заголовок курса
+  headerEl.innerHTML = `
+    <h1 class="text-3xl md:text-4xl font-bold mb-2">${escapeHtml(course.title)}</h1>
+    <p class="text-lg text-gray-600">${escapeHtml(course.subtitle || '')}</p>
+    ${course.description ? `<p class="text-gray-500 mt-2">${escapeHtml(course.description)}</p>` : ''}
+  `;
+
+  levelsEl.innerHTML = '';
+
+  // Подсчёт общего прогресса
+  let totalDone = 0, totalAll = 0;
+
+  for (const level of course.levels || []) {
+    const levelSection = document.createElement('section');
+    levelSection.className = 'mb-10';
+
+    levelSection.innerHTML = `
+      <div class="mb-4">
+        <h2 class="text-2xl font-bold">${escapeHtml(level.title)}</h2>
+        ${level.description ? `<p class="text-gray-600 mt-1">${escapeHtml(level.description)}</p>` : ''}
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-modules-for="${escapeHtml(level.id)}">
+        <p class="text-gray-400 col-span-full">Загрузка модулей...</p>
+      </div>
+    `;
+    levelsEl.appendChild(levelSection);
+
+    const modulesGrid = levelSection.querySelector(`[data-modules-for="${level.id}"]`);
+    modulesGrid.innerHTML = '';
+
+    for (const moduleId of level.modules || []) {
+      try {
+        const moduleData = await loadModule(moduleId);
+        const card = createModuleCard(moduleData);
+        modulesGrid.appendChild(card);
+
+        const progress = calculateModuleProgress(moduleData);
+        totalDone += progress.done;
+        totalAll += progress.total;
+      } catch (e) {
+        const errorCard = document.createElement('div');
+        errorCard.className = 'bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700';
+        errorCard.innerHTML = `
+          <strong>Не удалось загрузить модуль:</strong> ${escapeHtml(moduleId)}<br>
+          ${escapeHtml(e.message)}
+        `;
+        modulesGrid.appendChild(errorCard);
+      }
+    }
+  }
+
+  // Общий прогресс наверху
+  if (totalAll > 0) {
+    const overallPercent = Math.round((totalDone / totalAll) * 100);
+    const progressBar = document.createElement('div');
+    progressBar.className = 'mt-6 bg-white border border-gray-200 rounded-lg p-4';
+    progressBar.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-semibold">Общий прогресс</span>
+        <span class="text-sm text-gray-600">${totalDone} из ${totalAll} упражнений · ${overallPercent}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-bar-fill ${overallPercent === 100 ? 'complete' : ''}" style="width: ${overallPercent}%"></div>
+      </div>
+    `;
+    headerEl.appendChild(progressBar);
+  }
+}
+
+function createModuleCard(moduleData) {
+  const link = document.createElement('a');
+  link.href = `module.html?id=${encodeURIComponent(moduleData.id)}`;
+
+  const progress = calculateModuleProgress(moduleData);
+  const isComplete = progress.total > 0 && progress.done === progress.total;
+
+  link.className = 'module-card' + (isComplete ? ' completed' : '');
+
+  link.innerHTML = `
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="badge badge-level">${escapeHtml(moduleData.level || '')}</span>
+          ${isComplete ? '<span class="badge badge-completed">Пройден</span>' : ''}
+        </div>
+        <h3 class="text-lg font-bold mb-1" style="font-family: Lora, serif;">
+          ${escapeHtml(moduleData.title)}
+        </h3>
+        ${moduleData.subtitle ? `<p class="text-sm text-gray-600 mb-2">${escapeHtml(moduleData.subtitle)}</p>` : ''}
+        ${moduleData.estimated_minutes ? `<p class="text-xs text-gray-400">~ ${moduleData.estimated_minutes} мин</p>` : ''}
+      </div>
+    </div>
+    ${progress.total > 0 ? `
+      <div class="mt-4">
+        <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+          <span>Упражнения: ${progress.done} / ${progress.total}</span>
+          <span>${progress.percent}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill ${isComplete ? 'complete' : ''}" style="width: ${progress.percent}%"></div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  return link;
+}
+
+init();
+</script>
+
+</body>
+</html>
