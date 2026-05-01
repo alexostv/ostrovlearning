@@ -1,0 +1,264 @@
+# =====================================================
+# Конфигурация Decap CMS для курса испанского
+# Документация: https://decapcms.org/docs/
+# =====================================================
+
+backend:
+  name: git-gateway
+  branch: main
+  commit_messages:
+    create: 'Создан {{collection}} "{{slug}}"'
+    update: 'Обновлён {{collection}} "{{slug}}"'
+    delete: 'Удалён {{collection}} "{{slug}}"'
+    uploadMedia: 'Загружен файл "{{path}}"'
+    deleteMedia: 'Удалён файл "{{path}}"'
+
+# Папки для медиа-файлов (картинки, аудио)
+media_folder: "media"
+public_folder: "/media"
+
+# Язык интерфейса админки
+locale: "ru"
+
+# Открывать новые редакторы во вкладке а не в модалке (удобнее для длинных модулей)
+editor:
+  preview: false
+
+# =====================================================
+# Коллекции — что можно редактировать
+# =====================================================
+collections:
+
+  # ----- Модули курса -----
+  - name: "modules"
+    label: "Модули"
+    label_singular: "Модуль"
+    description: "Уроки курса. Каждый модуль состоит из теории и упражнений."
+    folder: "content/modules"
+    create: true
+    extension: "json"
+    format: "json"
+    slug: "{{fields.id}}"
+    identifier_field: "id"
+    summary: "{{level}} · {{title}}"
+    sortable_fields: ["level", "order", "title"]
+    view_groups:
+      - label: "По уровню"
+        field: "level"
+    fields:
+      - label: "Идентификатор"
+        name: "id"
+        widget: "string"
+        hint: "Уникальный ID модуля. Формат: УровеньНомер-латинскоеНазвание. Например: A0-03-numeros. Используется в URL и для имени файла."
+        pattern: ['^[A-Z][0-9]-[0-9]+-[a-z0-9-]+$', 'Формат: A0-XX-name (только латиница, цифры и дефисы)']
+
+      - label: "Уровень"
+        name: "level"
+        widget: "select"
+        options: ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
+        default: "A0"
+
+      - label: "Порядковый номер"
+        name: "order"
+        widget: "number"
+        value_type: "int"
+        min: 1
+        default: 1
+        hint: "Используется для сортировки модулей одного уровня."
+
+      - label: "Заголовок"
+        name: "title"
+        widget: "string"
+        hint: "Видят ученики на главной и в шапке модуля."
+
+      - label: "Подзаголовок"
+        name: "subtitle"
+        widget: "string"
+        required: false
+        hint: "Короткое описание под заголовком (опционально)."
+
+      - label: "Время изучения (минуты)"
+        name: "estimated_minutes"
+        widget: "number"
+        value_type: "int"
+        min: 1
+        default: 15
+        required: false
+
+      # ----- ТЕОРИЯ -----
+      - label: "Теория"
+        name: "theory"
+        widget: "list"
+        types_label: "Тип блока"
+        types:
+          - label: "Абзац текста"
+            name: "paragraph"
+            widget: "object"
+            summary: "{{fields.text}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "paragraph" }
+              - { label: "Текст абзаца", name: "text", widget: "text" }
+
+          - label: "Заголовок раздела"
+            name: "heading"
+            widget: "object"
+            summary: "▶ {{fields.text}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "heading" }
+              - { label: "Текст заголовка", name: "text", widget: "string" }
+
+          - label: "Маркированный список"
+            name: "list"
+            widget: "object"
+            summary: "Список"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "list" }
+              - label: "Пункты списка"
+                name: "items"
+                widget: "list"
+                field: { label: "Пункт", name: "item", widget: "string" }
+
+          - label: "Таблица"
+            name: "table"
+            widget: "object"
+            summary: "Таблица"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "table" }
+              - label: "Заголовки колонок"
+                name: "headers"
+                widget: "list"
+                field: { label: "Заголовок", name: "header", widget: "string" }
+              - label: "Строки"
+                name: "rows"
+                widget: "list"
+                field:
+                  label: "Строка (ячейки)"
+                  name: "row"
+                  widget: "list"
+                  field: { label: "Ячейка", name: "cell", widget: "string" }
+
+          - label: "Выноска"
+            name: "callout"
+            widget: "object"
+            summary: "{{fields.variant}}: {{fields.text}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "callout" }
+              - label: "Тип выноски"
+                name: "variant"
+                widget: "select"
+                options:
+                  - { label: "Совет (зелёный)", value: "tip" }
+                  - { label: "Предупреждение (жёлтый)", value: "warning" }
+                  - { label: "Информация (синий)", value: "info" }
+                default: "tip"
+              - { label: "Текст выноски", name: "text", widget: "text" }
+
+          - label: "Картинка"
+            name: "image"
+            widget: "object"
+            summary: "🖼 {{fields.alt}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "image" }
+              - { label: "Файл картинки", name: "src", widget: "image" }
+              - { label: "Альт-текст", name: "alt", widget: "string", hint: "Описание для невидящих и для случая если картинка не загрузилась." }
+              - { label: "Подпись под картинкой", name: "caption", widget: "string", required: false }
+
+          - label: "Аудио"
+            name: "audio"
+            widget: "object"
+            summary: "🔊 {{fields.caption}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "audio" }
+              - { label: "Аудио-файл", name: "src", widget: "file" }
+              - { label: "Описание", name: "caption", widget: "string", required: false }
+
+      # ----- УПРАЖНЕНИЯ -----
+      - label: "Упражнения"
+        name: "exercises"
+        widget: "list"
+        types_label: "Тип упражнения"
+        types:
+          - label: "Тест с выбором ответа"
+            name: "multiple-choice"
+            widget: "object"
+            summary: "✓ {{fields.question}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "multiple-choice" }
+              - { label: "ID упражнения", name: "id", widget: "string", hint: "Уникальный в рамках модуля. Например ex1, ex2." }
+              - { label: "Вопрос", name: "question", widget: "text" }
+              - label: "Варианты ответов"
+                name: "options"
+                widget: "list"
+                summary: "{{fields.text}}"
+                fields:
+                  - { label: "Текст варианта", name: "text", widget: "string" }
+                  - { label: "Правильный ответ", name: "correct", widget: "boolean", default: false }
+              - { label: "Можно выбрать несколько", name: "multiple", widget: "boolean", default: false, required: false, hint: "Включи если правильных ответов больше одного." }
+              - { label: "Объяснение (показывается после ответа)", name: "explanation", widget: "text", required: false }
+
+          - label: "Заполнение пропуска"
+            name: "fill-blank"
+            widget: "object"
+            summary: "✏ {{fields.sentence}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "fill-blank" }
+              - { label: "ID упражнения", name: "id", widget: "string" }
+              - { label: "Текст задания", name: "question", widget: "text", required: false, hint: "Что нужно сделать (например: 'Вставь нужное слово'). Опционально." }
+              - { label: "Предложение с пропуском", name: "sentence", widget: "string", hint: "Используй ___ (три подчёркивания подряд) для обозначения пропуска. Пример: '¡___! ¿Cómo estás?'" }
+              - label: "Допустимые ответы"
+                name: "answers"
+                widget: "list"
+                hint: "Все варианты которые засчитываются как правильные. Например: 'Hola' и 'hola'."
+                field: { label: "Ответ", name: "answer", widget: "string" }
+              - { label: "Подсказка ученику", name: "hint", widget: "string", required: false }
+              - { label: "Учитывать регистр", name: "case_sensitive", widget: "boolean", default: false, required: false, hint: "Если выключено: Hola = hola = HOLA" }
+              - { label: "Объяснение", name: "explanation", widget: "text", required: false }
+
+          - label: "Сопоставление пар"
+            name: "matching"
+            widget: "object"
+            summary: "⇄ {{fields.question}}"
+            fields:
+              - { label: "type", name: "type", widget: "hidden", default: "matching" }
+              - { label: "ID упражнения", name: "id", widget: "string" }
+              - { label: "Текст задания", name: "question", widget: "text", required: false }
+              - label: "Пары соответствия"
+                name: "pairs"
+                widget: "list"
+                summary: "{{fields.left}} ⇄ {{fields.right}}"
+                hint: "Каждая пара — то что должно соединиться. Левая колонка перемешивается со ВСЕМИ правыми элементами, ученик соединяет их."
+                fields:
+                  - { label: "Слева", name: "left", widget: "string" }
+                  - { label: "Справа", name: "right", widget: "string" }
+              - { label: "Объяснение", name: "explanation", widget: "text", required: false }
+
+  # ----- Настройки курса (один файл) -----
+  - name: "course"
+    label: "Настройки курса"
+    description: "Общие настройки и список уровней."
+    files:
+      - file: "content/courses.json"
+        label: "Манифест курса"
+        name: "manifest"
+        format: "json"
+        fields:
+          - { label: "Название курса", name: "title", widget: "string" }
+          - { label: "Подзаголовок", name: "subtitle", widget: "string", required: false }
+          - { label: "Автор", name: "author", widget: "string", required: false }
+          - { label: "Описание курса", name: "description", widget: "text", required: false }
+          - label: "Уровни"
+            name: "levels"
+            widget: "list"
+            summary: "{{fields.id}} — {{fields.title}}"
+            fields:
+              - { label: "ID уровня", name: "id", widget: "string", hint: "Например A0, A1, B1" }
+              - { label: "Название уровня", name: "title", widget: "string" }
+              - { label: "Описание уровня", name: "description", widget: "text", required: false }
+              - label: "Модули в этом уровне"
+                name: "modules"
+                widget: "list"
+                hint: "Список ID модулей в нужном порядке. ID должен совпадать с ID модуля в коллекции 'Модули'."
+                field:
+                  label: "ID модуля"
+                  name: "module"
+                  widget: "string"

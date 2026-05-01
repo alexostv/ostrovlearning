@@ -46,24 +46,40 @@ function renderExercise(moduleId, exercise, index) {
 
 /* =====================================================
    1. Multiple Choice (тест с выбором ответа)
+   Формат вариантов:
+   Новый: options = [{text, correct}, ...]
+   Старый: options = [string, ...] + correct = [индексы]
    ===================================================== */
+
+function normalizeMultipleChoice(exercise) {
+  const rawOptions = exercise.options || [];
+  // Новый формат: массив объектов с полями text/correct
+  if (rawOptions.length > 0 && typeof rawOptions[0] === 'object' && !Array.isArray(rawOptions[0])) {
+    return rawOptions.map(o => ({ text: o.text || '', correct: !!o.correct }));
+  }
+  // Старый формат: массив строк + отдельное поле correct с индексами
+  const correctSet = new Set(exercise.correct || []);
+  return rawOptions.map((text, i) => ({ text: String(text), correct: correctSet.has(i) }));
+}
 
 function renderMultipleChoice(moduleId, exercise) {
   const container = document.createElement('div');
-  const isMultiple = !!exercise.multiple;
+  const options = normalizeMultipleChoice(exercise);
+  // multiple = true если несколько правильных или явно указано
+  const correctCount = options.filter(o => o.correct).length;
+  const isMultiple = !!exercise.multiple || correctCount > 1;
   const inputType = isMultiple ? 'checkbox' : 'radio';
   const groupName = `mc-${moduleId}-${exercise.id}`;
 
   const optionsList = document.createElement('div');
-  exercise.options.forEach((opt, i) => {
+  options.forEach((opt, i) => {
     const label = document.createElement('label');
     label.className = 'choice-option';
     label.innerHTML = `
       <input type="${inputType}" name="${groupName}" value="${i}">
-      <span>${escapeHtml(opt)}</span>
+      <span>${escapeHtml(opt.text)}</span>
     `;
     label.addEventListener('click', () => {
-      // обновляем визуальное состояние
       setTimeout(() => updateChoiceVisual(optionsList), 0);
     });
     optionsList.appendChild(label);
@@ -86,12 +102,12 @@ function renderMultipleChoice(moduleId, exercise) {
       return;
     }
 
-    const correctSet = new Set(exercise.correct);
+    const correctIndices = options.map((o, i) => o.correct ? i : -1).filter(i => i >= 0);
+    const correctSet = new Set(correctIndices);
     const selectedSet = new Set(selected);
     const isCorrect = correctSet.size === selectedSet.size &&
       [...correctSet].every(x => selectedSet.has(x));
 
-    // визуально подсветить
     optionsList.querySelectorAll('.choice-option').forEach((label, i) => {
       label.classList.remove('selected', 'correct', 'incorrect');
       if (correctSet.has(i)) label.classList.add('correct');
@@ -125,7 +141,6 @@ function renderFillBlank(moduleId, exercise) {
   const sentenceDiv = document.createElement('div');
   sentenceDiv.className = 'exercise-sentence';
 
-  // Заменяем ___ на input field
   const sentence = exercise.sentence || '';
   const parts = sentence.split('___');
 
@@ -135,16 +150,12 @@ function renderFillBlank(moduleId, exercise) {
   input.autocomplete = 'off';
   input.spellcheck = false;
 
-  // Собираем
   if (parts.length >= 2) {
     sentenceDiv.appendChild(document.createTextNode(parts[0]));
     sentenceDiv.appendChild(input);
     for (let i = 1; i < parts.length; i++) {
       sentenceDiv.appendChild(document.createTextNode(parts[i]));
-      if (i < parts.length - 1) {
-        // несколько пропусков пока не поддерживаем, оставим первый только
-        break;
-      }
+      if (i < parts.length - 1) break;
     }
   } else {
     sentenceDiv.textContent = sentence;
@@ -206,15 +217,37 @@ function renderFillBlank(moduleId, exercise) {
 
 /* =====================================================
    3. Matching (сопоставление пар)
+   Формат пар:
+   Новый: pairs = [{left, right}, ...] (для CMS-редактирования)
+   Старый: left = [строки], right = [строки], pairs = [[i,j], ...]
    ===================================================== */
+
+function normalizeMatching(exercise) {
+  // Новый формат: pairs - массив объектов {left, right}
+  if (Array.isArray(exercise.pairs) && exercise.pairs.length > 0 &&
+      typeof exercise.pairs[0] === 'object' && !Array.isArray(exercise.pairs[0])) {
+    const left = exercise.pairs.map(p => p.left || '');
+    const right = exercise.pairs.map(p => p.right || '');
+    const pairs = exercise.pairs.map((_, i) => [i, i]);
+    return { left, right, pairs };
+  }
+  // Старый формат
+  return {
+    left: exercise.left || [],
+    right: exercise.right || [],
+    pairs: exercise.pairs || [],
+  };
+}
 
 function renderMatching(moduleId, exercise) {
   const container = document.createElement('div');
+  const { left: leftItems, right: rightItems, pairs: correctPairs } = normalizeMatching(exercise);
+
   const grid = document.createElement('div');
   grid.className = 'matching-container';
 
-  // Перемешаем правую колонку, чтобы не было совпадения по порядку
-  const rightOrder = exercise.right.map((_, i) => i);
+  // Перемешаем правую колонку
+  const rightOrder = rightItems.map((_, i) => i);
   shuffleArray(rightOrder);
 
   const leftColumn = document.createElement('div');
@@ -225,11 +258,11 @@ function renderMatching(moduleId, exercise) {
   const state = {
     selectedLeft: null,
     selectedRight: null,
-    matches: [], // массив [leftIndex, rightIndex]
+    matches: [],
     pairLabels: 0,
   };
 
-  exercise.left.forEach((text, i) => {
+  leftItems.forEach((text, i) => {
     const item = document.createElement('div');
     item.className = 'matching-item';
     item.dataset.side = 'left';
@@ -240,7 +273,7 @@ function renderMatching(moduleId, exercise) {
   });
 
   rightOrder.forEach((origIndex) => {
-    const text = exercise.right[origIndex];
+    const text = rightItems[origIndex];
     const item = document.createElement('div');
     item.className = 'matching-item';
     item.dataset.side = 'right';
@@ -252,12 +285,12 @@ function renderMatching(moduleId, exercise) {
 
   grid.appendChild(leftColumn);
   grid.appendChild(rightColumn);
-  container.appendChild(grid);
 
   const hint = document.createElement('div');
   hint.className = 'text-sm text-gray-500 italic mb-2';
   hint.textContent = 'Кликай по элементам слева и справа, чтобы соединять их в пары.';
-  container.insertBefore(hint, grid);
+  container.appendChild(hint);
+  container.appendChild(grid);
 
   const checkBtn = document.createElement('button');
   checkBtn.className = 'btn-primary mt-3';
@@ -274,14 +307,10 @@ function renderMatching(moduleId, exercise) {
   container.appendChild(feedback);
 
   function onMatchClick(item, side, index) {
-    if (item.classList.contains('matched') || checkBtn.disabled === false && state.matches.length === exercise.left.length) {
-      // не разрешаем выбирать после завершения
-    }
     if (item.classList.contains('matched')) return;
-    if (checkBtn.disabled === true && state.matches.length === exercise.left.length) return;
+    if (checkBtn.disabled === true && state.matches.length === leftItems.length) return;
 
     if (side === 'left') {
-      // снять предыдущий выбор слева
       leftColumn.querySelectorAll('.matching-item.selected').forEach(el => el.classList.remove('selected'));
       state.selectedLeft = { item, index };
       item.classList.add('selected');
@@ -292,7 +321,6 @@ function renderMatching(moduleId, exercise) {
     }
 
     if (state.selectedLeft && state.selectedRight) {
-      // создать пару
       const leftItem = state.selectedLeft.item;
       const rightItem = state.selectedRight.item;
       const leftIdx = state.selectedLeft.index;
@@ -319,7 +347,7 @@ function renderMatching(moduleId, exercise) {
       state.selectedLeft = null;
       state.selectedRight = null;
 
-      if (state.matches.length === exercise.left.length) {
+      if (state.matches.length === leftItems.length) {
         checkBtn.disabled = false;
       }
     }
@@ -340,7 +368,6 @@ function renderMatching(moduleId, exercise) {
   });
 
   checkBtn.addEventListener('click', () => {
-    const correctPairs = exercise.pairs || [];
     const correctMap = new Map(correctPairs.map(([l, r]) => [l, r]));
     let allCorrect = true;
 
@@ -385,7 +412,6 @@ function shuffleArray(arr) {
 }
 
 function notifyExerciseDone(container, isCorrect) {
-  // отправляем событие, чтобы страница модуля могла обновить общий прогресс
   container.dispatchEvent(new CustomEvent('exercise-completed', {
     bubbles: true,
     detail: { isCorrect },

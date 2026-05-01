@@ -1,5 +1,5 @@
 {
-  "_комментарий": "Шаблон модуля. Скопируй файл в content/modules/, переименуй (например A0-03-numeros.json), отредактируй и добавь id в content/courses.json.",
+  "_комментарий": "Шаблон модуля. После настройки CMS все модули будут создаваться через админку, но этот шаблон полезен если редактируешь файлы вручную.",
 
   "id": "A0-XX-название",
   "level": "A0",
@@ -46,13 +46,13 @@
     },
     {
       "type": "image",
-      "src": "images/example.jpg",
+      "src": "/images/example.jpg",
       "alt": "Описание для доступности",
       "caption": "Подпись под картинкой (опционально)"
     },
     {
       "type": "audio",
-      "src": "audio/example.mp3",
+      "src": "/media/example.mp3",
       "caption": "Описание аудио"
     }
   ],
@@ -65,20 +65,22 @@
       "type": "multiple-choice",
       "question": "Текст вопроса?",
       "options": [
-        "Вариант A",
-        "Вариант B",
-        "Вариант C",
-        "Вариант D"
+        { "text": "Вариант A", "correct": false },
+        { "text": "Вариант B", "correct": true },
+        { "text": "Вариант C", "correct": false },
+        { "text": "Вариант D", "correct": false }
       ],
-      "correct": [1],
       "explanation": "Объяснение, почему правильный ответ именно такой."
     },
     {
       "id": "ex2",
       "type": "multiple-choice",
       "question": "Можно ли выбрать несколько правильных ответов?",
-      "options": ["Да", "Нет", "Иногда"],
-      "correct": [0, 2],
+      "options": [
+        { "text": "Да", "correct": true },
+        { "text": "Нет", "correct": false },
+        { "text": "Иногда", "correct": true }
+      ],
       "multiple": true,
       "explanation": "Если поставить multiple: true, ученик может выбрать несколько вариантов."
     },
@@ -95,10 +97,12 @@
       "id": "ex4",
       "type": "matching",
       "question": "Соедини элементы слева и справа:",
-      "left": ["A", "B", "C"],
-      "right": ["один", "два", "три"],
-      "pairs": [[0, 0], [1, 1], [2, 2]],
-      "explanation": "В pairs первый элемент каждой пары — индекс из left, второй — индекс из right. Индексация с 0."
+      "pairs": [
+        { "left": "A", "right": "один" },
+        { "left": "B", "right": "два" },
+        { "left": "C", "right": "три" }
+      ],
+      "explanation": "Каждая пара содержит 'left' (то что в левой колонке) и 'right' (то что в правой). Сайт сам перемешает правую колонку при показе ученику."
     }
   ]
 }
