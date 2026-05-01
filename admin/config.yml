@@ -49,8 +49,7 @@ collections:
       - label: "Идентификатор"
         name: "id"
         widget: "string"
-        hint: "Уникальный ID модуля. Формат: УровеньНомер-латинскоеНазвание. Например: A0-03-numeros. Используется в URL и для имени файла."
-        pattern: ['^[A-Z][0-9]-[0-9]+-[a-z0-9-]+$', 'Формат: A0-XX-name (только латиница, цифры и дефисы)']
+        hint: "Уникальный ID модуля. Рекомендуемый формат: A0-03-numeros (уровень-номер-латинское-название). Используется в URL и для имени файла. Используй только латиницу, цифры и дефисы."
 
       - label: "Уровень"
         name: "level"
@@ -88,89 +87,26 @@ collections:
       # ----- ТЕОРИЯ -----
       - label: "Теория"
         name: "theory"
+        widget: "markdown"
+        required: false
+        hint: |
+          Пиши теорию как обычный текст. Используй панель сверху для заголовков, списков, таблиц, жирного, курсива.
+          Картинки — перетащи прямо в редактор.
+          Выноски (цветные блоки с советом/предупреждением) пиши так:
+          > [!TIP] Полезный совет (зелёный)
+          > [!WARNING] Предупреждение (жёлтый)
+          > [!INFO] Информация (синий)
+
+      # ----- АУДИО -----
+      - label: "Аудио к уроку"
+        name: "audio_files"
         widget: "list"
-        types_label: "Тип блока"
-        types:
-          - label: "Абзац текста"
-            name: "paragraph"
-            widget: "object"
-            summary: "{{fields.text}}"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "paragraph" }
-              - { label: "Текст абзаца", name: "text", widget: "text" }
-
-          - label: "Заголовок раздела"
-            name: "heading"
-            widget: "object"
-            summary: "▶ {{fields.text}}"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "heading" }
-              - { label: "Текст заголовка", name: "text", widget: "string" }
-
-          - label: "Маркированный список"
-            name: "list"
-            widget: "object"
-            summary: "Список"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "list" }
-              - label: "Пункты списка"
-                name: "items"
-                widget: "list"
-                field: { label: "Пункт", name: "item", widget: "string" }
-
-          - label: "Таблица"
-            name: "table"
-            widget: "object"
-            summary: "Таблица"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "table" }
-              - label: "Заголовки колонок"
-                name: "headers"
-                widget: "list"
-                field: { label: "Заголовок", name: "header", widget: "string" }
-              - label: "Строки"
-                name: "rows"
-                widget: "list"
-                field:
-                  label: "Строка (ячейки)"
-                  name: "row"
-                  widget: "list"
-                  field: { label: "Ячейка", name: "cell", widget: "string" }
-
-          - label: "Выноска"
-            name: "callout"
-            widget: "object"
-            summary: "{{fields.variant}}: {{fields.text}}"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "callout" }
-              - label: "Тип выноски"
-                name: "variant"
-                widget: "select"
-                options:
-                  - { label: "Совет (зелёный)", value: "tip" }
-                  - { label: "Предупреждение (жёлтый)", value: "warning" }
-                  - { label: "Информация (синий)", value: "info" }
-                default: "tip"
-              - { label: "Текст выноски", name: "text", widget: "text" }
-
-          - label: "Картинка"
-            name: "image"
-            widget: "object"
-            summary: "🖼 {{fields.alt}}"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "image" }
-              - { label: "Файл картинки", name: "src", widget: "image" }
-              - { label: "Альт-текст", name: "alt", widget: "string", hint: "Описание для невидящих и для случая если картинка не загрузилась." }
-              - { label: "Подпись под картинкой", name: "caption", widget: "string", required: false }
-
-          - label: "Аудио"
-            name: "audio"
-            widget: "object"
-            summary: "🔊 {{fields.caption}}"
-            fields:
-              - { label: "type", name: "type", widget: "hidden", default: "audio" }
-              - { label: "Аудио-файл", name: "src", widget: "file" }
-              - { label: "Описание", name: "caption", widget: "string", required: false }
+        required: false
+        summary: "🔊 {{fields.caption}}"
+        hint: "Аудио-файлы появятся отдельным блоком после теории, перед упражнениями."
+        fields:
+          - { label: "Аудио-файл", name: "src", widget: "file" }
+          - { label: "Описание", name: "caption", widget: "string", required: false }
 
       # ----- УПРАЖНЕНИЯ -----
       - label: "Упражнения"

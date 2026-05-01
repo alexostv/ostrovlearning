@@ -117,27 +117,115 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-/* --- Рендеринг блоков теории --- */
+/* --- Рендеринг теории (Markdown) --- */
 
-function renderTheory(theoryBlocks) {
-  if (!Array.isArray(theoryBlocks)) return '';
-  return theoryBlocks.map(renderTheoryBlock).join('');
+/**
+ * Преобразует GitHub-стиль выносок в HTML-блок с CSS-классом.
+ *   > [!TIP]
+ *   > Текст
+ * становится:
+ *   <div class="callout callout-tip">Текст</div>
+ *
+ * Также поддерживается короткая запись в одной строке:
+ *   > [!TIP] Текст совета
+ */
+function preprocessAlerts(md) {
+  const variantMap = {
+    TIP: 'tip',
+    NOTE: 'info',
+    INFO: 'info',
+    IMPORTANT: 'tip',
+    WARNING: 'warning',
+    CAUTION: 'warning',
+  };
+
+  // Случай 1: блок > [!TYPE] на строке + следующие строки начинающиеся на >
+  let result = md.replace(
+    /^> \[!(TIP|NOTE|IMPORTANT|WARNING|CAUTION|INFO)\]\s*\n((?:^>.*(?:\n|$))*)/gm,
+    (match, type, body) => {
+      const variant = variantMap[type] || 'info';
+      const cleanBody = body.replace(/^>\s?/gm, '').trim();
+      const innerHtml = window.marked
+        ? window.marked.parse(cleanBody)
+        : `<p>${escapeHtml(cleanBody)}</p>`;
+      return `\n<div class="callout callout-${variant}">${innerHtml}</div>\n`;
+    }
+  );
+
+  // Случай 2: короткая запись > [!TYPE] текст в одну строку
+  result = result.replace(
+    /^> \[!(TIP|NOTE|IMPORTANT|WARNING|CAUTION|INFO)\]\s+(.+)$/gm,
+    (match, type, text) => {
+      const variant = variantMap[type] || 'info';
+      const innerHtml = window.marked
+        ? window.marked.parseInline(text)
+        : escapeHtml(text);
+      return `\n<div class="callout callout-${variant}"><p>${innerHtml}</p></div>\n`;
+    }
+  );
+
+  return result;
 }
 
-function renderTheoryBlock(block) {
+/**
+ * Превращает Markdown-строку с теорией в HTML.
+ * Если на вход пришёл массив (старый формат блоков) — рендерим в режиме совместимости.
+ */
+function renderTheory(theory) {
+  if (!theory) return '';
+
+  // Старый формат: массив блоков (paragraph, heading, table, callout, image, audio)
+  if (Array.isArray(theory)) {
+    return theory.map(renderLegacyTheoryBlock).join('');
+  }
+
+  // Новый формат: одна Markdown-строка
+  if (typeof theory === 'string') {
+    if (!window.marked) {
+      console.warn('marked.js не загружен, теория показывается как текст');
+      return `<pre>${escapeHtml(theory)}</pre>`;
+    }
+    const preprocessed = preprocessAlerts(theory);
+    return window.marked.parse(preprocessed);
+  }
+
+  return '';
+}
+
+/**
+ * Рендеринг блока аудио-файлов (отдельная секция между теорией и упражнениями).
+ */
+function renderAudioFiles(audioFiles) {
+  if (!Array.isArray(audioFiles) || audioFiles.length === 0) return '';
+  const items = audioFiles.map(a => {
+    const caption = a.caption
+      ? `<div class="text-sm text-gray-600 mb-2">${escapeHtml(a.caption)}</div>`
+      : '';
+    return `<div class="audio-block">${caption}<audio controls src="${escapeHtml(a.src)}"></audio></div>`;
+  }).join('');
+  return `
+    <section class="audio-section my-8">
+      <h2 class="text-xl font-bold mb-3" style="font-family: Lora, serif;">🔊 Аудио к уроку</h2>
+      ${items}
+    </section>
+  `;
+}
+
+/**
+ * Совместимость со старым форматом — массив блоков.
+ * Используется только если в JSON ещё лежит массив (не успели мигрировать).
+ */
+function renderLegacyTheoryBlock(block) {
   if (!block || !block.type) return '';
   switch (block.type) {
     case 'paragraph':
       return `<p>${escapeHtml(block.text)}</p>`;
-
     case 'heading':
       return `<h2>${escapeHtml(block.text)}</h2>`;
-
     case 'list': {
       const items = (block.items || []).map(i => `<li>${escapeHtml(i)}</li>`).join('');
       return `<ul>${items}</ul>`;
     }
-
     case 'table': {
       const headers = (block.headers || []).map(h => `<th>${escapeHtml(h)}</th>`).join('');
       const rows = (block.rows || []).map(row => {
@@ -146,24 +234,19 @@ function renderTheoryBlock(block) {
       }).join('');
       return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
     }
-
     case 'callout': {
       const variant = ['tip', 'warning', 'info'].includes(block.variant) ? block.variant : 'info';
       return `<div class="callout callout-${variant}">${escapeHtml(block.text)}</div>`;
     }
-
     case 'image': {
       const caption = block.caption ? `<div class="image-caption">${escapeHtml(block.caption)}</div>` : '';
       return `<div class="image-block"><img src="${escapeHtml(block.src)}" alt="${escapeHtml(block.alt || '')}">${caption}</div>`;
     }
-
     case 'audio': {
       const caption = block.caption ? `<div class="text-sm text-gray-500 mb-2">${escapeHtml(block.caption)}</div>` : '';
       return `<div class="audio-block">${caption}<audio controls src="${escapeHtml(block.src)}"></audio></div>`;
     }
-
     default:
-      console.warn('Неизвестный тип блока теории:', block.type);
       return '';
   }
 }
